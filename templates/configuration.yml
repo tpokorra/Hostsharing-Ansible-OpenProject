@@ -1,0 +1,16 @@
+# cat configuration.yml.example | grep -vxE '[[:blank:]]*([#;].*)?'
+default:
+  log_level: info
+  email_delivery_method: :smtp
+  smtp_address: localhost
+  smtp_port: 25
+  smtp_domain: {{domain}}
+  rails_force_ssl: false
+  session_store: :cache_store
+  disable_password_choice: false
+production:
+  log_level: warn
+development:
+  email_delivery_method: :letter_opener
+test:
+  email_delivery_method: :test

@@ -1,0 +1,8 @@
+production:
+  adapter: postgresql
+  encoding: unicode
+  host: localhost
+  database: {{pac}}_{{user}}
+  pool: 10
+  username: {{pac}}_{{user}}
+  password: {{password}}

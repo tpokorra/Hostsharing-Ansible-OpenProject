@@ -1,0 +1,214 @@
+---
+- hosts: openproject
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    kanboard_version: 1.2.21
+    previous_version: 1.2.20
+    # see https://docs.ansible.com/ansible/latest/user_guide/become.html#risks-of-becoming-an-unprivileged-user
+    ansible_common_remote_group: "{{pac}}"
+
+  tasks:
+  - name: Create user, domain and database
+    import_tasks: tasks/hs_basis.yml
+
+  - name: Sleep to avoid issue invalid user for temporary files
+    pause:
+      seconds: 10
+
+  #################################
+  ## install requirements
+  #################################
+  - name: Install node.js
+    import_tasks: tasks/hs_nodejs.yml
+
+  - name: Install ruby
+    import_tasks: tasks/hs_ruby.yml
+
+  #################################
+  ## install openproject
+  #################################
+  - name: Check for git working tree
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    stat:
+      path: /home/pacs/{{pac}}/users/{{user}}/openproject
+    register: workingtree
+  - name: get openproject repo
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    git:
+      repo: https://github.com/opf/openproject.git
+      version: "{{openproject_branch}}"
+      dest: /home/pacs/{{pac}}/users/{{user}}/openproject
+    when: not workingtree.stat.exists
+
+  - name: install ruby packages
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    shell: |
+      . ~/.profile
+      gem update --system || exit -1
+      gem install bundler || exit -1
+      bundle update --bundler || exit -1
+      bundle config set deployment 'true' || exit -1
+      bundle config set without 'mysql2 sqlite development test therubyracer docker' || exit -1
+      bundle install || exit -1
+    args:
+        executable: /bin/bash
+        chdir: "/home/pacs/{{pac}}/users/{{user}}/openproject"
+  - name: install node.js packages
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    shell: |
+      . ~/.profile
+      npm install || exit -1
+    args:
+        executable: /bin/bash
+        chdir: "/home/pacs/{{pac}}/users/{{user}}/openproject"
+
+  #################################
+  ## install data directory
+  #################################
+# TODO: ~/storage/openproject/files
+# https://community.openproject.org/topics/4962
+# openproject-ce config:set ATTACHMENTS_STORAGE_PATH=/var/db/openproject/files
+# openproject-ce reconfigure
+# service opennproject-ce restart
+  - name: Check for HDD storage
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    stat:
+      path: /home/storage/{{pac}}/users/{{user}}
+    register: hdd_storage
+  - name: create data directory on storage
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    file:
+      path: "/home/storage/{{pac}}/users/{{user}}/data"
+      state: directory
+      mode: 0744
+    when: hdd_storage.stat.exists
+
+  - name: create symbolic link for data to storage
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    file:
+      src: "/home/storage/{{pac}}/users/{{user}}/data"
+      dest: "/home/pacs/{{pac}}/users/{{user}}/data"
+      state: link
+    when: hdd_storage.stat.exists
+
+  - name: create data directory on sdd
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    file:
+      path: "/home/pacs/{{pac}}/users/{{user}}/data"
+      state: directory
+      mode: 0744
+    when: not hdd_storage.stat.exists
+
+  #################################
+  ## prepare configuration file
+  #################################
+  - name: copy database config file
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    template: dest="/home/pacs/{{pac}}/users/{{user}}/openproject/config/database.yml" src="templates/database.yml" mode=0600
+
+  - name: copy configuration file
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    template: dest="/home/pacs/{{pac}}/users/{{user}}/openproject/config/configuration.yml" src="templates/configuration.yml" mode=0600
+
+  ##################################
+  ## initialise the installation
+  ##################################
+  - name: create secret key
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    shell: |
+      . ~/.profile
+      EDITOR=cat ./bin/rails credentials:edit || exit -1
+    args:
+        executable: /bin/bash
+        chdir: "/home/pacs/{{pac}}/users/{{user}}/openproject"
+        creates: /home/pacs/{{pac}}/users/{{user}}/openproject/config/credentials.yml.enc
+
+  - name: prepare database
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    shell: |
+      . ~/.profile
+      export RAILS_ENV="production"
+      ./bin/rails db:prepare || exit -1
+      touch /home/pacs/{{pac}}/users/{{user}}/.ansible_db_prepared
+    args:
+        executable: /bin/bash
+        chdir: "/home/pacs/{{pac}}/users/{{user}}/openproject"
+        creates: /home/pacs/{{pac}}/users/{{user}}/.ansible_db_prepared
+
+  - name: precompile assets
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    shell: |
+      . ~/.profile
+      export RAILS_ENV="production"
+      ./bin/rake assets:precompile || exit -1
+      touch /home/pacs/{{pac}}/users/{{user}}/.ansible_assets_precompiled
+    args:
+        executable: /bin/bash
+        chdir: "/home/pacs/{{pac}}/users/{{user}}/openproject"
+        creates: /home/pacs/{{pac}}/users/{{user}}/.ansible_assets_precompiled
+
+  - name: seed the database
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    shell: |
+      . ~/.profile
+      export RAILS_ENV="production"
+      LOCALE=en ./bin/rake db:seed || exit -1
+      touch /home/pacs/{{pac}}/users/{{user}}/.ansible_db_seeded
+    args:
+        executable: /bin/bash
+        chdir: "/home/pacs/{{pac}}/users/{{user}}/openproject"
+        creates: /home/pacs/{{pac}}/users/{{user}}/.ansible_db_seeded
+
+  #################################
+  ## configure cronjobs
+  #################################
+# TODO 
+
+  #################################
+  ## activate website
+  #################################
+  - name: drop htdocs-ssl
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    file:
+       path: "/home/pacs/{{pac}}/users/{{user}}/doms/{{domain}}/htdocs-ssl"
+       state: absent
+  - name: drop app-ssl
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    file:
+       path: "/home/pacs/{{pac}}/users/{{user}}/doms/{{domain}}/app-ssl"
+       state: absent
+  - name: create symbolic link for htdocs-ssl
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    file:
+      src: "/home/pacs/{{pac}}/users/{{user}}/openproject/public"
+      dest: "/home/pacs/{{pac}}/users/{{user}}/doms/{{domain}}/htdocs-ssl"
+      state: link
+  - name: create symbolic link for app-ssl
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    file:
+      src: "/home/pacs/{{pac}}/users/{{user}}/openproject"
+      dest: "/home/pacs/{{pac}}/users/{{user}}/doms/{{domain}}/app-ssl"
+      state: link
+  - name: upload htaccess
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    template: dest="/home/pacs/{{pac}}/users/{{user}}/doms/{{domain}}/.htaccess" src="templates/htaccess_domain"
+
