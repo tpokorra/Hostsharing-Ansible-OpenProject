@@ -69,11 +69,6 @@
   #################################
   ## install data directory
   #################################
-# TODO: ~/storage/openproject/files
-# https://community.openproject.org/topics/4962
-# openproject-ce config:set ATTACHMENTS_STORAGE_PATH=/var/db/openproject/files
-# openproject-ce reconfigure
-# service opennproject-ce restart
   - name: Check for HDD storage
     become: yes
     become_user: "{{pac}}-{{user}}"
@@ -98,7 +93,7 @@
       state: link
     when: hdd_storage.stat.exists
 
-  - name: create data directory on sdd
+  - name: create data directory on ssd
     become: yes
     become_user: "{{pac}}-{{user}}"
     file:
@@ -106,6 +101,36 @@
       state: directory
       mode: 0744
     when: not hdd_storage.stat.exists
+
+  - name: configure hdd data directory path
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    set_fact:
+      data_path: "/home/storage/{{pac}}/users/{{user}}/data"
+    when: hdd_storage.stat.exists
+
+  - name: configure ssd data directory path
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    set_fact:
+      data_path: "/home/pacs/{{pac}}/users/{{user}}/data"
+    when: not hdd_storage.stat.exists
+
+  #################################
+  ## create directories
+  #################################
+  - name: create directory bin
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    file:
+      path: "/home/pacs/{{pac}}/users/{{user}}/bin"
+      state: directory
+  - name: create directory var/tmp
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    file:
+      path: "/home/pacs/{{pac}}/users/{{user}}/var/tmp"
+      state: directory
 
   #################################
   ## prepare configuration file
@@ -119,6 +144,11 @@
     become: yes
     become_user: "{{pac}}-{{user}}"
     template: dest="/home/pacs/{{pac}}/users/{{user}}/openproject/config/configuration.yml" src="templates/configuration.yml" mode=0600
+
+  - name: copy tmpdir configuration
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    template: dest="/home/pacs/{{pac}}/users/{{user}}/openproject/config/initializers/tmpdir.rb" src="templates/tmpdir.rb" mode=0600
 
   ##################################
   ## initialise the installation
@@ -173,10 +203,57 @@
         chdir: "/home/pacs/{{pac}}/users/{{user}}/openproject"
         creates: /home/pacs/{{pac}}/users/{{user}}/.ansible_db_seeded
 
+  - name: apply some settings for hostname and protocol
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    shell: |
+      . ~/.profile
+      export RAILS_ENV="production"
+      rails setting:set[host_name={{domain}}]
+      rails setting:set[protocol=https]
+      touch /home/pacs/{{pac}}/users/{{user}}/.ansible_hostname_setting
+    args:
+        executable: /bin/bash
+        chdir: "/home/pacs/{{pac}}/users/{{user}}/openproject"
+        creates: /home/pacs/{{pac}}/users/{{user}}/.ansible_hostname_setting
+
+  #################################
+  ## upload scripts
+  #################################
+  - name: upload restart script
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    template: dest="/home/pacs/{{pac}}/users/{{user}}/bin/restart.sh" src="templates/restart.sh" mode=0700
+  - name: upload sql script
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    template: dest="/home/pacs/{{pac}}/users/{{user}}/bin/sql.sh" src="templates/sql.sh" mode=0700
+
   #################################
   ## configure cronjobs
   #################################
-# TODO 
+  - name: upload emailjob script
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    template: dest="/home/pacs/{{pac}}/users/{{user}}/bin/emailjob.sh" src="templates/emailjob.sh" mode=0700
+  - name: upload jobrestart script
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    template: dest="/home/pacs/{{pac}}/users/{{user}}/bin/jobrestart.sh" src="templates/jobrestart.sh" mode=0700
+  - name: setup cronjob for sending emails
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    cron:
+      name: "emailjob"
+      minute: "*/2"
+      job: "/home/pacs/{{pac}}/users/{{user}}/bin/emailjob.sh > /dev/null 2>&1"
+  - name: setup cronjob for restarting background job
+    become: yes
+    become_user: "{{pac}}-{{user}}"
+    cron:
+      name: "restarting background job"
+      minute: "22"
+      job: "/home/pacs/{{pac}}/users/{{user}}/bin/jobrestart.sh > /dev/null 2>&1"
 
   #################################
   ## activate website

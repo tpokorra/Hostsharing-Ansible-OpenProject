@@ -1,1 +1,3 @@
+SetEnv OPENPROJECT_STORAGE_TMP__PATH /home/pacs/{{pac}}/users/{{user}}/var/tmp/
+SetEnv TMPDIR /home/pacs/{{pac}}/users/{{user}}/var/tmp/
 PassengerRuby /home/pacs/{{pac}}/users/{{user}}/.rbenv/shims/ruby

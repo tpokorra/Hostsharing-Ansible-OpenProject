@@ -8,6 +8,16 @@ default:
   rails_force_ssl: false
   session_store: :cache_store
   disable_password_choice: false
+  attachments_storage_path: {{data_path}}
+  # https://github.com/opf/openproject/blob/dev/app/uploaders/file_uploader.rb#L96
+  # https://apidock.com/ruby/v2_5_5/Dir/tmpdir/class
+  # .htaccess: SetEnv OPENPROJECT_STORAGE_TMP__PATH /home/pacs/tim03/users/tptestpr/tmp/
+  # https://stackoverflow.com/questions/17065849/change-tmp-folder-for-uploaded-files/17068331
+  # .htaccess SetEnv TMPDIR /home/pacs/tim03/users/tptestpr/tmp/
+  # https://bugs.ruby-lang.org/issues/8468 SAFE=0 ist schlecht
+  #storage:
+  #  tmp_path: /home/pacs/{{pac}}/users/{{user}}/var/tmp/
+
 production:
   log_level: warn
 development:

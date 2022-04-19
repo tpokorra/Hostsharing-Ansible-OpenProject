@@ -13,9 +13,7 @@ openproject:
       mail_username: xyz00-myemailuser
       mail_password: topsecret!
 
-      # this will create a deactivated installation, which can be activated by an activation script
-      SaasEnvironment: False
-      SaasActivationPassword: anothertopsecret!
+      admin_user: admin
 
       # see https://nodejs.org/en/about/releases/
       noderelease: 16
