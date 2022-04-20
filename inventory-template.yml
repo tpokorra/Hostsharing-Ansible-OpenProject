@@ -13,7 +13,10 @@ openproject:
       mail_username: {{smtp_user}}
       mail_password: {{smtp_pwd}}
 
-      admin_user: admin
+      SaasActivationPassword: {{SaasActivationPassword}}
+      SaasInstanceStatus: {{SaasInstanceStatus}}
+
+      adminname: admin
 
       # see https://nodejs.org/en/about/releases/
       noderelease: 16
