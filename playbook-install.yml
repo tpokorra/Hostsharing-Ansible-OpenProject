@@ -211,6 +211,7 @@
       export RAILS_ENV="production"
       rails setting:set[host_name={{domain}}]
       rails setting:set[protocol=https]
+      rails setting:set[mail_from={{mail_from}}]
       touch /home/pacs/{{pac}}/users/{{user}}/.ansible_hostname_setting
     args:
         executable: /bin/bash
