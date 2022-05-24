@@ -45,14 +45,13 @@
   - name: install ruby packages
     become: yes
     become_user: "{{pac}}-{{user}}"
+    # see https://www.openproject.org/docs/installation-and-operations/installation/manual/
     shell: |
       . ~/.profile
       gem update --system || exit -1
       gem install bundler || exit -1
       bundle update --bundler || exit -1
-      bundle config set deployment 'true' || exit -1
-      bundle config set without 'mysql2 sqlite development test therubyracer docker' || exit -1
-      bundle install || exit -1
+      bundle install --deployment --without mysql2 sqlite development test therubyracer docker || exit -1
     args:
         executable: /bin/bash
         chdir: "/home/pacs/{{pac}}/users/{{user}}/openproject"
