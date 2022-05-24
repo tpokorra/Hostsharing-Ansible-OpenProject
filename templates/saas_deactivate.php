@@ -22,6 +22,7 @@ if (!is_run_from_cli()) {
 
 try {
     $pdo = new PDO('pgsql:host=localhost;dbname={{pac}}_{{user}}', '{{pac}}_{{user}}', '{{password}}');
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     # lock all users permanently
     $stmt = $pdo->query("SELECT login from users");
     while ($row = $stmt->fetch()) {

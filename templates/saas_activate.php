@@ -19,6 +19,7 @@ if (empty($USER_EMAIL_ADDRESS)) {
 try {
     # enable the administrator user, and set the email address
     $pdo = new PDO('pgsql:host=localhost;dbname={{pac}}_{{user}}', '{{pac}}_{{user}}', '{{password}}');
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $stmtUpdate = $pdo->prepare("UPDATE users SET status=1, mail=?, created_at=NOW(), updated_at=NOW() WHERE login=? AND status=3");
     $stmtUpdate->execute([$USER_EMAIL_ADDRESS, '{{adminname}}']);
 }
