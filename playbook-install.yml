@@ -240,13 +240,14 @@
     become: yes
     become_user: "{{pac}}-{{user}}"
     template: dest="/home/pacs/{{pac}}/users/{{user}}/bin/jobrestart.sh" src="templates/jobrestart.sh" mode=0700
-  - name: setup cronjob for sending emails
-    become: yes
-    become_user: "{{pac}}-{{user}}"
-    cron:
-      name: "emailjob"
-      minute: "*/2"
-      job: "/home/pacs/{{pac}}/users/{{user}}/bin/emailjob.sh > /dev/null 2>&1"
+  # Disable this cronjob because it causes a high CPU load, and emails seem to be sent anyways
+  #- name: setup cronjob for sending emails
+  #  become: yes
+  #  become_user: "{{pac}}-{{user}}"
+  #  cron:
+  #    name: "emailjob"
+  #    minute: "*/2"
+  #    job: "/home/pacs/{{pac}}/users/{{user}}/bin/emailjob.sh > /dev/null 2>&1"
   - name: setup cronjob for restarting background job
     become: yes
     become_user: "{{pac}}-{{user}}"
